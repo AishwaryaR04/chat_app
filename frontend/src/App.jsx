@@ -1,82 +1,98 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { io } from "socket.io-client";
+import "./App.css";
 
+// Connect to your backend (replace with your Railway URL when deployed)
 const socket = io("http://localhost:5000");
 
 function App() {
+  const [username, setUsername] = useState("");
+  const [inputUsername, setInputUsername] = useState("");
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
+  const [chat, setChat] = useState([]);
 
-useEffect(() => {
-  socket.on("receive-message", (msg) => {
-    console.log("Message received on frontend:", msg);
-    setMessages((prev) => [...prev, { text: msg, fromMe: false }]);
-  });
+  useEffect(() => {
+    // Listen for messages from server
+    socket.on("receiveMessage", (data) => {
+      setChat((prev) => [...prev, data]);
+    });
 
-  return () => {
-    socket.off("receive-message");
-  };
-}, []);
+    return () => {
+      socket.off("receiveMessage");
+    };
+  }, []);
 
-
-
-
-  const handleSend = () => {
-    if (!message) return;
-    // Send message to server
-    socket.emit("send-message", message);
-    setMessages((prev) => [...prev, { text: message, fromMe: true }]);
-    setMessage("");
+  const handleSetUsername = () => {
+    if (inputUsername.trim()) {
+      setUsername(inputUsername);
+      socket.emit("setUsername", inputUsername);
+    }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") handleSend();
+  const sendMessage = () => {
+    if (message.trim() && username) {
+      socket.emit("sendMessage", message);
+      setMessage("");
+    }
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "50px auto", fontFamily: "sans-serif" }}>
-      <h1>React Vite Chat</h1>
-      <div
-        style={{
-          border: "1px solid #ccc",
-          padding: 20,
-          height: 400,
-          overflowY: "auto",
-          marginBottom: 10,
-        }}
-      >
-        {messages.map((msg, index) => (
-          <div
-            key={index}
-            style={{
-              textAlign: msg.fromMe ? "right" : "left",
-              margin: "5px 0",
-            }}
-          >
-            <span
-              style={{
-                display: "inline-block",
-                padding: "5px 10px",
-                borderRadius: 10,
-                backgroundColor: msg.fromMe ? "#a0e1e0" : "#e1e1e1",
-              }}
-            >
-              {msg.text}
-            </span>
+    <div className="app">
+      {!username ? (
+        <div className="username-setup">
+          <h2>Enter your name to join the chat</h2>
+          <input
+            type="text"
+            className="username-input"
+            placeholder="Your name..."
+            value={inputUsername}
+            onChange={(e) => setInputUsername(e.target.value)}
+          />
+          <button className="username-btn" onClick={handleSetUsername}>
+            Join Chat
+          </button>
+        </div>
+      ) : (
+        <div className="chat-container">
+          <div className="chat-header">
+            <span></span> The Chatroom
           </div>
-        ))}
-      </div>
-      <input
-        type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onKeyDown={handleKeyPress}
-        placeholder="Type your message..."
-        style={{ width: "80%", padding: 10 }}
-      />
-      <button onClick={handleSend} style={{ padding: 10 }}>
-        Send
-      </button>
+
+          <div className="chat-box">
+            {chat.map((c, i) => (
+              <div
+                key={i}
+                className={`message ${
+                  c.username === username ? "sent" : "received"
+                }`}
+              >
+                <strong>{c.username}</strong>
+                <span>{c.message}</span>
+                <div className="timestamp">
+                  {new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="message-input-area">
+            <input
+              type="text"
+              className="message-input"
+              placeholder="Type your message..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            />
+            <button className="send-btn" onClick={sendMessage}>
+              Send
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
