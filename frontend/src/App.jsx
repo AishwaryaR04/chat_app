@@ -21,7 +21,14 @@ function App() {
     return () => {
       socket.off("receiveMessage");
     };
+    
   }, []);
+  useEffect(() => {
+  socket.on("warning", (msg) => {
+    alert(msg);
+  });
+}, []);
+
 
   const handleSetUsername = () => {
     if (inputUsername.trim()) {
