@@ -34,7 +34,7 @@ io.on("connection", (socket) => {
   socket.on("sendMessage", (message) => {
     const user = users[socket.id];
     const username = user ? user.username : "Anonymous";
-    console.log(`💬 ${username} (${ipAddress}): ${message}`);
+    
     io.emit("receiveMessage", { username, message });
   });
 
