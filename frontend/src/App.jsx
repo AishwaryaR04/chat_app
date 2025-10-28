@@ -3,7 +3,8 @@ import { io } from "socket.io-client";
 import "./App.css";
 
 // Connect to your backend (replace with your Railway URL when deployed)
-const socket = io("http://localhost:5000");
+const socket = io("http://10.54.100.49:5000");
+
 
 function App() {
   const [username, setUsername] = useState("");
