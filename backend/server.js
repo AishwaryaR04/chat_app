@@ -10,18 +10,19 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // replace with your frontend URL when deployed
+    origin: "*", 
     methods: ["GET", "POST"],
   },
 });
 
-const users = {}; // socket.id → { username, ip }
-const messageRate = {}; // ip → [timestamps of messages]
-const suspiciousIPs = new Set(); // store flagged IPs
+const users = {};
+const messageRate = {}; 
+const suspiciousIPs = {}; // changed from Set to object to track warnings
 
 // IDS configuration
-const MAX_MESSAGES = 5; // max messages allowed
-const TIME_WINDOW = 5000; // in ms (5 seconds)
+const MAX_MESSAGES = 5; 
+const TIME_WINDOW = 5000; 
+const MAX_WARNINGS = 2; // disconnect after 2 warnings
 
 io.on("connection", (socket) => {
   // get IP address
@@ -37,12 +38,11 @@ io.on("connection", (socket) => {
     printConnectedUsers();
   });
 
-  // handle message sending
+
   socket.on("sendMessage", (message) => {
     const user = users[socket.id];
     const username = user ? user.username : "Anonymous";
 
-    // 🧩 IDS: rate-limiting logic
     const now = Date.now();
     if (!messageRate[ipAddress]) messageRate[ipAddress] = [];
     messageRate[ipAddress] = messageRate[ipAddress].filter(
@@ -50,15 +50,26 @@ io.on("connection", (socket) => {
     );
     messageRate[ipAddress].push(now);
 
+    if (!suspiciousIPs[ipAddress]) suspiciousIPs[ipAddress] = { warnings: 0 };
+
     if (messageRate[ipAddress].length > MAX_MESSAGES) {
-      console.log(`🚨 [IDS ALERT] Possible spam from IP: ${ipAddress} (${username})`);
-      suspiciousIPs.add(ipAddress);
-      socket.emit("warning", "⚠️ You are sending messages too quickly!");
-      return;
+      suspiciousIPs[ipAddress].warnings += 1;
+      console.log(
+        `🚨 [IDS ALERT] Possible spam from IP: ${ipAddress} (${username}) - Warning ${suspiciousIPs[ipAddress].warnings}/${MAX_WARNINGS}`
+      );
+
+      if (suspiciousIPs[ipAddress].warnings >= MAX_WARNINGS) {
+        console.log(`⛔ ${username} (${ipAddress}) has been disconnected for spamming.`);
+        socket.emit("warning", "🚫 You have been disconnected for spamming.");
+        socket.disconnect(true);
+        return;
+      } else {
+        socket.emit("warning", "⚠️ You are sending messages too quickly!");
+        return;
+      }
     }
 
     io.emit("receiveMessage", { username, message });
-    
   });
 
   socket.on("disconnect", () => {
